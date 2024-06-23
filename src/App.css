@@ -1,0 +1,95 @@
+.App {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 20px;
+  font-family: Arial, sans-serif;
+}
+
+.habit-input {
+  margin-bottom: 20px;
+}
+
+.main-content {
+  display: flex;
+  gap: 100px;
+}
+
+.habits-list {
+  width: 450px;
+}
+
+.habit-item-container {
+  display: flex;
+  align-items: center;
+  margin-bottom: 5px;
+}
+
+.habit-item {
+  flex-grow: 1;
+  min-width: 200px;
+  padding: 10px;
+  cursor: pointer;
+  border: 1px solid #ddd;
+}
+
+.habit-item.selected {
+  background-color: #086715;
+}
+
+.habit-item-container button {
+  margin-left: 5px;
+  padding: 5px 10px;
+  background-color: #4e4e4ec2;
+  border: 1px solid #ddd;
+  cursor: pointer;
+}
+
+.habit-item-container input[type="text"] {
+  flex-grow: 1;
+  padding: 5px;
+  margin-right: 5px;
+}
+
+.habit-details {
+  flex-grow: 1;
+}
+
+.yearly-calendar {
+  display: grid;
+  grid-template-columns: repeat(53, 1fr);
+  gap: 3px;
+  margin-bottom: 20px;
+}
+
+.week {
+  display: contents;
+}
+
+.day {
+  width: 24px;
+  height: 24px;
+  background-color: #ebedf0;
+  cursor: pointer;
+  border: 1px solid rgba(80, 96, 112, 0.5);
+  border-radius: 4px;
+  box-sizing: border-box;
+}
+
+.day.selected {
+  border: 2px solid #0366d6;
+}
+
+.completion-input {
+  margin-top: 20px;
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.completion-input input[type="number"] {
+  width: 50px;
+}
+
+.completion-input input[type="date"] {
+  width: 150px;
+}
