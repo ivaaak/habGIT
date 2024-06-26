@@ -8,6 +8,10 @@ interface Habit {
   completions: { [date: string]: number };
 }
 
+interface CodingHabit extends Habit {
+  githubUsername: string;
+}
+
 const App: React.FC = () => {
   const [habits, setHabits] = useState<Habit[]>(() => {
     const savedHabits = localStorage.getItem('habits');
@@ -19,15 +23,36 @@ const App: React.FC = () => {
   const [completionValue, setCompletionValue] = useState<number>(0);
   const [editingHabit, setEditingHabit] = useState<Habit | null>(null);
 
+  const [codingHabit, setCodingHabit] = useState<CodingHabit>(() => {
+    const savedCodingHabit = localStorage.getItem('codingHabit');
+    return savedCodingHabit ? JSON.parse(savedCodingHabit) : {
+      id: 'coding',
+      name: 'Coding',
+      completions: {},
+      githubUsername: '',
+      unitOfMeasurement: 'commits'
+    };
+  });
+
   useEffect(() => {
     localStorage.setItem('habits', JSON.stringify(habits));
   }, [habits]);
+
+  useEffect(() => {
+    localStorage.setItem('codingHabit', JSON.stringify(codingHabit));
+  }, [codingHabit]);
 
   useEffect(() => {
     if (selectedHabit) {
       setCompletionValue(selectedHabit.completions[selectedDate] || 0);
     }
   }, [selectedHabit, selectedDate]);
+
+  useEffect(() => {
+    if (codingHabit.githubUsername) {
+      fetchGitHubContributions(codingHabit.githubUsername);
+    }
+  }, [codingHabit.githubUsername]);
 
   const addHabit = (): void => {
     if (newHabit.trim()) {
@@ -44,13 +69,20 @@ const App: React.FC = () => {
 
   const updateCompletion = (): void => {
     if (selectedHabit) {
-      setHabits(prevHabits =>
-        prevHabits.map(habit =>
-          habit.id === selectedHabit.id
-            ? { ...habit, completions: { ...habit.completions, [selectedDate]: completionValue } }
-            : habit
-        )
-      );
+      if (selectedHabit.id === 'coding') {
+        setCodingHabit(prevHabit => ({
+          ...prevHabit,
+          completions: { ...prevHabit.completions, [selectedDate]: completionValue }
+        }));
+      } else {
+        setHabits(prevHabits =>
+          prevHabits.map(habit =>
+            habit.id === selectedHabit.id
+              ? { ...habit, completions: { ...habit.completions, [selectedDate]: completionValue } }
+              : habit
+          )
+        );
+      }
       setSelectedHabit(prevHabit =>
         prevHabit ? { ...prevHabit, completions: { ...prevHabit.completions, [selectedDate]: completionValue } } : null
       );
@@ -94,29 +126,50 @@ const App: React.FC = () => {
     return dates;
   };
 
-  const renderYearlyCalendar = (): JSX.Element => {
+  const renderYearlyCalendar = (habit: Habit | CodingHabit): JSX.Element => {
     const dates = getLastYear();
     const calendar: JSX.Element[] = [];
-
+  
     dates.forEach((date, index) => {
       if (index % 7 === 0) {
         calendar.push(<div key={`week-${index}`} className="week"></div>);
       }
-      const completion = selectedHabit?.completions[date] || 0;
+      const completion = habit.completions[date] || 0;
       calendar.push(
         <div
           key={date}
           className={`day ${completion > 0 ? 'completed' : ''} ${date === selectedDate ? 'selected' : ''}`}
-          style={{ backgroundColor: `rgba(104, 236, 139, ${completion / 10})` }}
+          style={{ backgroundColor: `rgba(104, 236, 139, ${Math.min(completion / 10, 1)})` }}
           onClick={() => setSelectedDate(date)}
           title={`${date}: ${completion}`}
         ></div>
       );
     });
-
+  
     return <div className="yearly-calendar">{calendar}</div>;
   };
 
+  const fetchGitHubContributions = async (username: string) => {
+    try {
+      const response = await fetch(`https://api.github.com/users/${username}/events/public`);
+      const events = await response.json();
+      
+      const pushEvents = events.filter((event: any) => event.type === 'PushEvent');
+      const newCompletions: { [date: string]: number } = {};
+  
+      pushEvents.forEach((event: any) => {
+        const date = event.created_at.split('T')[0];
+        newCompletions[date] = (newCompletions[date] || 0) + event.payload.commits.length;
+      });
+  
+      setCodingHabit(prevHabit => ({
+        ...prevHabit,
+        completions: newCompletions
+      }));
+    } catch (error) {
+      console.error('Error fetching GitHub contributions:', error);
+    }
+  };
 
   return (
     <div className="App">
@@ -133,6 +186,20 @@ const App: React.FC = () => {
       <div className="main-content">
         <div className="habits-list">
           <h2>Habits:</h2>
+          <div className="habit-item-container">
+          <div 
+            className={`habit-item ${selectedHabit?.id === 'coding' ? 'selected' : ''}`}
+            onClick={() => setSelectedHabit(codingHabit)}
+          >
+            Coding
+          </div>
+          <input
+            type="text"
+            value={codingHabit.githubUsername}
+            onChange={(e) => setCodingHabit({...codingHabit, githubUsername: e.target.value})}
+            placeholder="GitHub Username"
+          />
+          </div>
           {habits.map((habit: Habit) => (
             <div key={habit.id} className="habit-item-container">
               {editingHabit && editingHabit.id === habit.id ? (
@@ -162,7 +229,7 @@ const App: React.FC = () => {
         {selectedHabit && (
           <div className="habit-details">
             <h2>{selectedHabit.name}</h2>
-            {renderYearlyCalendar()}
+            {renderYearlyCalendar(selectedHabit)}
             <div className="completion-input">
               <label>
                 Date:
