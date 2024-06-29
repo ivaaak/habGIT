@@ -151,17 +151,55 @@ const App: React.FC = () => {
 
   const fetchGitHubContributions = async (username: string) => {
     try {
-      const response = await fetch(`https://api.github.com/users/${username}/events/public`);
-      const events = await response.json();
+      // Get user's repositories
+      const reposResponse = await fetch(`https://api.github.com/users/${username}/repos`);
       
-      const pushEvents = events.filter((event: any) => event.type === 'PushEvent');
+      if (!reposResponse.ok) {
+        throw new Error(`HTTP error! status: ${reposResponse.status}`);
+      }
+      
+      const repos = await reposResponse.json();
+      
+      if (!Array.isArray(repos)) {
+        console.error('Unexpected response format for repos:', repos);
+        throw new Error('Repositories data is not in the expected format');
+      }
+  
+      const oneYearAgo = new Date();
+      oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
+  
       const newCompletions: { [date: string]: number } = {};
   
-      pushEvents.forEach((event: any) => {
-        const date = event.created_at.split('T')[0];
-        newCompletions[date] = (newCompletions[date] || 0) + event.payload.commits.length;
-      });
+      // Fetch commits for each repository
+      for (const repo of repos) {
+        let page = 1;
+        let hasMoreCommits = true;
   
+        while (hasMoreCommits) {
+          const commitsResponse = await fetch(
+            `https://api.github.com/repos/${username}/${repo.name}/commits?per_page=100&page=${page}&since=${oneYearAgo.toISOString()}`
+          );
+          
+          if (!commitsResponse.ok) {
+            console.error(`Error fetching commits for ${repo.name}: ${commitsResponse.status}`);
+            break;
+          }
+          
+          const commits = await commitsResponse.json();
+  
+          if (!Array.isArray(commits) || commits.length === 0) {
+            hasMoreCommits = false;
+          } else {
+            commits.forEach((commit: any) => {
+              const date = commit.commit.author.date.split('T')[0];
+              newCompletions[date] = (newCompletions[date] || 0) + 1;
+            });
+            page++;
+          }
+        }
+      }
+  
+      // Update state with the combined data
       setCodingHabit(prevHabit => ({
         ...prevHabit,
         completions: newCompletions
@@ -173,7 +211,7 @@ const App: React.FC = () => {
 
   return (
     <div className="App">
-      <h1>Habit Tracker Heatmap</h1>
+      <h1>HabGIT - Habit Tracker Heatmap</h1>
       <div className="habit-input">
         <input
           type="text"
@@ -191,7 +229,7 @@ const App: React.FC = () => {
             className={`habit-item ${selectedHabit?.id === 'coding' ? 'selected' : ''}`}
             onClick={() => setSelectedHabit(codingHabit)}
           >
-            Coding
+            coding
           </div>
           <input
             type="text"
